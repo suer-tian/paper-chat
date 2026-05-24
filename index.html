@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>纸片传话</title>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: "ZhuNiMing";
+            src: url("/fonts/AaZhuNiWoMingMeiXiangChunTian-2.ttf") format("truetype");
+            font-weight: normal;
+            font-style: normal;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: "ZCOOL XiaoWei", "ZhuNiMing", "Microsoft YaHei", sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: background-image 0.6s ease;
+        }
+
+        #defaultBg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(135deg, #e8ddd0 0%, #ddd4ca 25%, #d4d0c8 50%, #c8cfc4 75%, #cdd4d0 100%);
+        }
+        #defaultBg::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 15% 25%, rgba(200,180,160,0.35) 0%, transparent 45%),
+                radial-gradient(ellipse at 85% 15%, rgba(170,190,170,0.3) 0%, transparent 40%),
+                radial-gradient(ellipse at 50% 80%, rgba(180,170,190,0.25) 0%, transparent 45%),
+                radial-gradient(ellipse at 75% 65%, rgba(190,175,160,0.2) 0%, transparent 40%);
+            pointer-events: none;
+        }
+        #defaultBg.hidden { display: none; }
+
+        #particleCanvas {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .fullscreen-btn {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 100;
+            width: 36px;
+            height: 36px;
+            border: 1.5px solid rgba(180,170,155,0.5);
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #7a6b5d;
+            transition: all 0.3s;
+        }
+        .fullscreen-btn:hover { background: rgba(255,255,255,0.6); border-color: rgba(150,140,125,0.8); }
+
+        .season-bar {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .season-btn {
+            padding: 6px 14px;
+            font-family: "ZCOOL XiaoWei", serif;
+            font-size: 13px;
+            border: 1.5px solid rgba(180,170,155,0.5);
+            border-radius: 20px;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.4);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            color: #7a6b5d;
+        }
+        .season-btn:hover { border-color: rgba(150,140,125,0.8); background: rgba(255,255,255,0.6); }
+        .season-btn.active { background: rgba(168,152,128,0.35); color: #5a4d40; font-weight: bold; border-color: #a89880; }
+        .season-btn.s-spring.active { border-color: #c9a0a0; background: rgba(201,160,160,0.3); color: #8a5a5a; }
+        .season-btn.s-summer.active { border-color: #7aaa7a; background: rgba(122,170,122,0.3); color: #3a6a3a; }
+        .season-btn.s-autumn.active { border-color: #c49060; background: rgba(196,144,96,0.3); color: #8a5a2a; }
+        .season-btn.s-winter.active { border-color: #7a9ab0; background: rgba(122,154,176,0.3); color: #3a5a7a; }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 460px;
+            width: 90%;
+            padding: 40px 36px 30px;
+            background: rgba(242,236,228,0.1);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(120,100,80,0.12), 0 2px 8px rgba(120,100,80,0.06);
+            border: 1px solid rgba(255,255,255,0.35);
+            text-align: center;
+        }
+
+        .container h2 {
+            font-family: "ZhuNiMing", cursive;
+            font-size: 32px;
+            color: #7a6b5d;
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+            font-weight: normal;
+        }
+
+        .msg-area {
+            width: 100%;
+            height: 120px;
+            padding: 16px 18px;
+            border: 1.5px solid rgba(197,184,165,0.45);
+            border-radius: 12px;
+            background: rgba(250,247,242,0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            font-family: "ZhuNiMing", cursive;
+            font-size: 20px;
+            color: #5a4d40;
+            resize: none;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            line-height: 1.8;
+        }
+        .msg-area::placeholder { color: #b8a99a; }
+        .msg-area:focus { border-color: #a89880; box-shadow: 0 0 0 3px rgba(168,152,128,0.15); }
+
+        .send-btn {
+            margin-top: 16px;
+            padding: 12px 36px;
+            font-family: "ZCOOL XiaoWei", serif;
+            font-size: 18px;
+            background: linear-gradient(135deg, #b5a58c, #a89888, #9ca898);
+            color: #fff;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            letter-spacing: 3px;
+            transition: all 0.3s, transform 0.15s;
+            box-shadow: 0 4px 12px rgba(120,100,80,0.15);
+        }
+        .send-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(120,100,80,0.2); }
+        .send-btn:active { transform: translateY(0); }
+        .hint { margin-top: 16px; font-size: 13px; color: #b0a090; letter-spacing: 1px; }
+
+        .paper-popup {
+            position: fixed;
+            width: 280px;
+            padding: 28px 24px 20px;
+            border-radius: 6px;
+            box-shadow: 0 6px 24px rgba(100,80,60,0.12), 0 2px 6px rgba(100,80,60,0.06);
+            font-family: "ZhuNiMing", cursive;
+            font-size: 20px;
+            text-align: left;
+            line-height: 1.9;
+            z-index: 999;
+            opacity: 0;
+            transform: scale(0.3) rotate(0deg);
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        .paper-popup.type-self { background: linear-gradient(145deg, rgba(245,235,218,0.7), rgba(240,225,205,0.7)); border: 1px solid rgba(216,200,176,0.5); color: #3d2e1e; }
+        .paper-popup.type-other { background: linear-gradient(145deg, rgba(218,235,218,0.7), rgba(210,228,210,0.7)); border: 1px solid rgba(184,200,180,0.5); color: #1e3d1e; }
+        .paper-popup.type-self.season-spring { background: linear-gradient(145deg, rgba(250,222,220,0.7), rgba(245,215,215,0.7)); border-color: rgba(200,160,160,0.5); color: #5a2a2a; }
+        .paper-popup.type-other.season-spring { background: linear-gradient(145deg, rgba(220,240,220,0.7), rgba(215,235,215,0.7)); border-color: rgba(160,200,160,0.5); color: #2a4a2a; }
+        .paper-popup.type-self.season-summer { background: linear-gradient(145deg, rgba(235,248,225,0.7), rgba(230,243,220,0.7)); border-color: rgba(170,200,150,0.5); color: #2a4a1a; }
+        .paper-popup.type-other.season-summer { background: linear-gradient(145deg, rgba(210,235,210,0.7), rgba(205,230,205,0.7)); border-color: rgba(140,190,140,0.5); color: #1a3a1a; }
+        .paper-popup.type-self.season-autumn { background: linear-gradient(145deg, rgba(248,228,205,0.7), rgba(244,222,195,0.7)); border-color: rgba(210,180,140,0.5); color: #4a2a0a; }
+        .paper-popup.type-other.season-autumn { background: linear-gradient(145deg, rgba(245,225,215,0.7), rgba(240,218,208,0.7)); border-color: rgba(200,170,150,0.5); color: #3a1a0a; }
+        .paper-popup.type-self.season-winter { background: linear-gradient(145deg, rgba(225,235,248,0.7), rgba(220,230,245,0.7)); border-color: rgba(160,185,215,0.5); color: #1a2a4a; }
+        .paper-popup.type-other.season-winter { background: linear-gradient(145deg, rgba(215,230,242,0.7), rgba(210,225,238,0.7)); border-color: rgba(150,175,205,0.5); color: #0a1a3a; }
+        .paper-popup::before { content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 50px; height: 12px; background: rgba(200,190,170,0.45); border-radius: 0 0 4px 4px; opacity: 0.6; }
+        .paper-popup.show { opacity: 1; transform: scale(1) rotate(var(--rotate, 0deg)); pointer-events: auto; }
+        .paper-popup.fade-out { opacity: 0; transform: scale(0.85) rotate(var(--rotate, 0deg)); transition: opacity 1.2s ease, transform 1.2s ease; }
+        .paper-popup.glow { animation: paperGlow 1.5s ease-in-out; }
+        @keyframes paperGlow { 0% { box-shadow: 0 6px 24px rgba(100,80,60,0.12); } 30% { box-shadow: 0 0 30px rgba(190,170,140,0.4), 0 6px 24px rgba(100,80,60,0.15); } 100% { box-shadow: 0 6px 24px rgba(100,80,60,0.12); } }
+
+        .close-btn { position: absolute; top: 4px; right: 10px; cursor: pointer; font-size: 20px; color: rgba(180,170,155,0.7); font-family: sans-serif; transition: color 0.2s; }
+        .close-btn:hover { color: #8a7b6d; }
+        .paper-label { display: block; font-size: 11px; font-family: "ZCOOL XiaoWei", serif; letter-spacing: 2px; margin-bottom: 4px; opacity: 0.5; }
+        .type-self .paper-label { color: #8a7b6d; }
+        .type-other .paper-label { color: #6d8a6d; }
+        .paper-deco { position: absolute; font-size: 16px; opacity: 0.5; pointer-events: none; line-height: 1; }
+
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+        .status-dot.connected { background: #a8b89a; }
+        .status-dot.disconnected { background: #c4a0a0; }
+        .status-bar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 12px; color: rgba(176,160,144,0.7); letter-spacing: 1px; z-index: 10; }
+
+        .alert-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; padding: 14px 24px; font-family: "Ma Shan Zheng", cursive; font-size: 20px; letter-spacing: 2px; text-align: center; transform: translateY(-100%); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none; }
+        .alert-banner.type-self { background: linear-gradient(135deg, rgba(232,216,196,0.95), rgba(236,220,200,0.95)); color: #6b5d4a; border-bottom: 1.5px solid rgba(216,200,176,0.7); }
+        .alert-banner.type-other { background: linear-gradient(135deg, rgba(212,224,212,0.95), rgba(220,232,220,0.95)); color: #4a5d4a; border-bottom: 1.5px solid rgba(184,200,180,0.7); }
+        .alert-banner.show { transform: translateY(0); }
+        .alert-banner.fade-out { transform: translateY(-100%); transition: transform 0.6s ease; }
+    </style>
+</head>
+<body>
+    <div id="defaultBg"></div>
+    <canvas id="particleCanvas"></canvas>
+
+    <div class="season-bar">
+        <button class="season-btn s-spring" onclick="setSeason('spring')">🌸 春</button>
+        <button class="season-btn s-summer" onclick="setSeason('summer')">🌿 夏</button>
+        <button class="season-btn s-autumn" onclick="setSeason('autumn')">🍂 秋</button>
+        <button class="season-btn s-winter" onclick="setSeason('winter')">❄️ 冬</button>
+        <button class="season-btn active" onclick="setSeason('default')">渐变</button>
+    </div>
+
+    <button class="fullscreen-btn" onclick="toggleFullscreen()" title="全屏 / 退出全屏">⛶</button>
+
+    <div class="container">
+        <h2>给对面写张小纸条</h2>
+        <textarea id="msgInput" class="msg-area" placeholder="在这儿写悄悄话..."></textarea>
+        <br>
+        <button class="send-btn" onclick="sendPaper()">传 过 去</button>
+        <p class="hint">回车发送 · Shift+回车换行 · 每条纸条独立显示</p>
+    </div>
+
+    <div id="paperLayer" style="position:fixed;inset:0;pointer-events:none;z-index:998;"></div>
+    <div id="alertBanner" class="alert-banner"></div>
+
+    <div class="status-bar">
+        <span id="statusDot" class="status-dot disconnected"></span>
+        <span id="statusText">连接中...</span>
+    </div>
+
+    <script>
+        var canvas = document.getElementById('particleCanvas');
+        var ctx = canvas.getContext('2d');
+        var particles = [];
+        var currentSeason = 'default';
+
+        var seasonImages = {
+            spring: '/images/spring.jpg',
+            summer: '/images/summer.jpg',
+            autumn: '/images/autumn.jpg',
+            winter: '/images/winter.jpg'
+        };
+
+        var seasonEmoji = {
+            spring: ['🌸','🌺','🌷','🌼','🩷'],
+            summer: ['🍉','🍃','🌿','🌞','🧊'],
+            autumn: ['🍂','🍁','🌰','🧡','🍃'],
+            winter: ['❄️','🌨️','💠','✨','🤍']
+        };
+
+        var seasonDecos = {
+            spring: { self: ['🌸','🌷','🌺'], other: ['🌼','💐','🩷'], pos: [{b:'12px',r:'8px'},{t:'8px',l:'8px'}] },
+            summer: { self: ['🍉','🌿','🍃'], other: ['🌞','🧊','🍀'], pos: [{b:'12px',r:'8px'},{t:'8px',l:'8px'}] },
+            autumn: { self: ['🍂','🍁','🌰'], other: ['🍂','🧡','🌾'], pos: [{b:'12px',r:'8px'},{t:'8px',l:'8px'}] },
+            winter: { self: ['❄️','💠','🌨️'], other: ['❄️','✨','🤍'], pos: [{b:'12px',r:'8px'},{t:'8px',l:'8px'}] }
+        };
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        function spawnParticles() {
+            particles = [];
+            var emojis = seasonEmoji[currentSeason];
+            if (!emojis) return;
+            for (var i = 0; i < 18; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: 0.2 + Math.random() * 0.5,
+                    emoji: emojis[Math.floor(Math.random() * emojis.length)],
+                    size: 14 + Math.random() * 12,
+                    alpha: 0.25 + Math.random() * 0.3,
+                    rot: Math.random() * Math.PI * 2,
+                    rotV: (Math.random() - 0.5) * 0.02
+                });
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var i = 0; i < particles.length; i++) {
+                var p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.rot += p.rotV;
+                if (p.y > canvas.height + 30) { p.y = -30; p.x = Math.random() * canvas.width; }
+                if (p.x < -30) p.x = canvas.width + 30;
+                if (p.x > canvas.width + 30) p.x = -30;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                ctx.globalAlpha = p.alpha;
+                ctx.font = p.size + 'px serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(p.emoji, 0, 0);
+                ctx.restore();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', function() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        animate();
+
+        var defaultBg = document.getElementById('defaultBg');
+        var sendBtn = document.querySelector('.send-btn');
+
+        function setSeason(season) {
+            currentSeason = season;
+            var btns = document.querySelectorAll('.season-btn');
+            btns.forEach(function(b) { b.classList.remove('active'); });
+            if (season === 'default') {
+                btns[4].classList.add('active');
+                defaultBg.classList.remove('hidden');
+                document.body.style.backgroundImage = 'none';
+                sendBtn.style.background = 'linear-gradient(135deg, #b5a58c, #a89888, #9ca898)';
+                sendBtn.style.color = '#fff';
+                sendBtn.style.border = 'none';
+                sendBtn.style.backdropFilter = 'none';
+                sendBtn.style.webkitBackdropFilter = 'none';
+            } else {
+                for (var i = 0; i < 4; i++) {
+                    if (btns[i].classList.contains('s-' + season)) btns[i].classList.add('active');
+                }
+                defaultBg.classList.add('hidden');
+                document.body.style.backgroundImage = 'url(' + seasonImages[season] + ')';
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+                document.body.style.backgroundRepeat = 'no-repeat';
+                sendBtn.style.background = 'rgba(180,168,148,0.35)';
+                sendBtn.style.color = '#5a4d40';
+                sendBtn.style.border = '1.5px solid rgba(180,170,155,0.45)';
+                sendBtn.style.backdropFilter = 'blur(8px)';
+                sendBtn.style.webkitBackdropFilter = 'blur(8px)';
+            }
+            spawnParticles();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(function(e) {
+                    console.log('全屏请求失败', e);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function getWsUrl() { return 'ws://' + location.hostname + ':3000'; }
+
+        var WS_URL = getWsUrl();
+        var socket = new WebSocket(WS_URL);
+        var statusDot = document.getElementById('statusDot');
+        var statusText = document.getElementById('statusText');
+        var paperLayer = document.getElementById('paperLayer');
+        var paperId = 0;
+        var MAX_PAPERS = 8;
+        var alertBanner = document.getElementById('alertBanner');
+        var alertTimer = null;
+        var originalTitle = document.title;
+        var titleFlashInterval = null;
+
+        function flashTitle(text) {
+            if (titleFlashInterval) clearInterval(titleFlashInterval);
+            var msg = '💬 ' + text, show = true;
+            titleFlashInterval = setInterval(function() { document.title = show ? msg : originalTitle; show = !show; }, 800);
+            setTimeout(function() { clearInterval(titleFlashInterval); titleFlashInterval = null; document.title = originalTitle; }, 6000);
+        }
+
+        function showAlertBanner(text, type) {
+            if (alertTimer) clearTimeout(alertTimer);
+            alertBanner.textContent = '📩 ' + text;
+            alertBanner.className = 'alert-banner type-' + type + ' show';
+            alertTimer = setTimeout(function() {
+                alertBanner.classList.add('fade-out');
+                alertBanner.classList.remove('show');
+                setTimeout(function() { alertBanner.className = 'alert-banner'; }, 600);
+            }, 4000);
+        }
+
+        document.getElementById('msgInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPaper(); }
+        });
+
+        function setStatus(connected) {
+            statusDot.className = 'status-dot ' + (connected ? 'connected' : 'disconnected');
+            statusText.textContent = connected ? '已连上中转站' : '未连接';
+        }
+
+        socket.onopen = function() { setStatus(true); };
+        socket.onmessage = function(event) {
+            try { var d = JSON.parse(event.data); showPaper(d.text, d.type); } catch(e) { showPaper(event.data, 'other'); }
+        };
+        socket.onerror = function() { setStatus(false); alert('连接失败！请检查服务器和防火墙'); };
+        socket.onclose = function() { setStatus(false); };
+
+        function sendPaper() {
+            var input = document.getElementById('msgInput');
+            var msg = input.value.trim();
+            if (msg && socket.readyState === WebSocket.OPEN) { socket.send(msg); input.value = ''; }
+            else if (msg) { alert('连接未就绪，请刷新页面重试'); }
+        }
+
+        function showPaper(text, type) {
+            if (document.hidden || !document.hasFocus()) {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('纸片传话', { body: text, tag: 'p' + Date.now() });
+                }
+                showAlertBanner(text, type || 'other');
+                flashTitle(text);
+                try { window.focus(); } catch(e) {}
+            }
+
+            var existing = paperLayer.children;
+            while (existing.length >= MAX_PAPERS) removePaper(existing[0]);
+
+            var el = document.createElement('div');
+            var cls = 'paper-popup type-' + (type || 'other');
+            if (currentSeason !== 'default') cls += ' season-' + currentSeason;
+            el.className = cls;
+
+            var vw = window.innerWidth, vh = window.innerHeight;
+            var pad = 30, popW = 280, popH = 160;
+            el.style.left = (pad + Math.random() * Math.max(0, vw - popW - pad * 2)) + 'px';
+            el.style.top = (pad + Math.random() * Math.max(0, vh - popH - pad * 2)) + 'px';
+            el.style.setProperty('--rotate', ((Math.random() - 0.5) * 12) + 'deg');
+            el.style.pointerEvents = 'auto';
+
+            var label = document.createElement('span');
+            label.className = 'paper-label';
+            label.textContent = type === 'self' ? '你写的' : '收到的';
+
+            var closeBtn = document.createElement('span');
+            closeBtn.className = 'close-btn';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = function() { removePaper(el); };
+
+            var content = document.createElement('p');
+            content.textContent = text;
+
+            el.appendChild(closeBtn);
+            el.appendChild(label);
+            el.appendChild(content);
+
+            var decos = seasonDecos[currentSeason];
+            if (decos) {
+                var emojiList = type === 'self' ? decos.self : decos.other;
+                for (var d = 0; d < decos.pos.length; d++) {
+                    var deco = document.createElement('span');
+                    deco.className = 'paper-deco';
+                    deco.textContent = emojiList[Math.floor(Math.random() * emojiList.length)];
+                    var pos = decos.pos[d];
+                    if (pos.t) deco.style.top = pos.t;
+                    if (pos.b) deco.style.bottom = pos.b;
+                    if (pos.l) deco.style.left = pos.l;
+                    if (pos.r) deco.style.right = pos.r;
+                    el.appendChild(deco);
+                }
+            }
+
+            paperLayer.appendChild(el);
+            requestAnimationFrame(function() { el.classList.add('show', 'glow'); });
+            el._timer = setTimeout(function() { fadeOutPaper(el); }, 5000);
+        }
+
+        function fadeOutPaper(el) {
+            if (!el || !el.parentNode) return;
+            clearTimeout(el._timer);
+            el.classList.add('fade-out');
+            el.classList.remove('show', 'glow');
+            el._fadeTimer = setTimeout(function() { removePaper(el); }, 1200);
+        }
+
+        function removePaper(el) {
+            if (!el || !el.parentNode) return;
+            clearTimeout(el._timer);
+            clearTimeout(el._fadeTimer);
+            el.parentNode.removeChild(el);
+        }
+    </script>
+</body>
+</html>
